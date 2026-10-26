@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Hyphen Grid</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a PV-plant control room. Header + battery scoreboard on top, one "module" stage in the centre, round string below. */
+:root{
+  --bg:#0a1428;          /* night-sky silicon blue */
+  --panel:#101f3b;
+  --panel-2:#152a4f;
+  --line:#22396a;
+  --fg:#e7eefb;
+  --muted:#93a6c9;
+  --sun:#ffb21e;         /* the one bold accent */
+  --sun-soft:rgba(255,178,30,.14);
+  --cell:#2f6cf0;
+  --ok:#36d3a6;
+  --bad:#ff6b5e;
+  --f-display:"Saira Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 var(--f-body);
+  background-image:
+    radial-gradient(900px 500px at 100% -10%, rgba(255,178,30,.13), transparent 60%),
+    linear-gradient(var(--bg),var(--bg));
+}
+body::after{ /* faint PV-cell grid */
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+  background-image:
+    linear-gradient(to right, rgba(60,100,180,.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(60,100,180,.12) 1px, transparent 1px);
+  background-size:56px 56px;
+}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-block:20px 40px;display:flex;flex-direction:column;gap:18px;min-height:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{margin:6px 0 0;font:800 clamp(34px,6vw,56px)/.95 var(--f-display);letter-spacing:-.01em;text-transform:uppercase}
+h1 .hy{color:var(--sun);text-shadow:0 0 18px rgba(255,178,30,.6)}
+.tools{display:flex;gap:8px}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:500 13px var(--f-mono);color:var(--muted)}
+.ghost:hover{color:var(--fg);border-color:var(--muted)}
+
+/* scoreboard */
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.team{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px;transition:border-color .2s, box-shadow .2s}
+.team.on{border-color:var(--sun);box-shadow:0 0 0 1px var(--sun), 0 0 24px rgba(255,178,30,.18)}
+.team .nm{display:flex;justify-content:space-between;gap:8px;font:600 14px var(--f-display);letter-spacing:.04em;text-transform:uppercase;min-width:0}
+.team .nm span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team .kwh{font:700 14px var(--f-mono);color:var(--sun);font-variant-numeric:tabular-nums}
+.batt{position:relative;height:16px;border:1.5px solid var(--muted);border-radius:3px;padding:2px;margin-right:6px}
+.batt::after{content:"";position:absolute;right:-6px;top:4px;width:4px;height:6px;background:var(--muted);border-radius:0 2px 2px 0}
+.batt i{display:block;height:100%;border-radius:1px;background:repeating-linear-gradient(90deg,var(--ok) 0 9px,transparent 9px 11px);transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.turn{font:500 11px var(--f-mono);color:var(--sun);letter-spacing:.1em;text-transform:uppercase}
+
+/* stage */
+.stage{background:linear-gradient(180deg,var(--panel),#0d1a33);border:1px solid var(--line);border-radius:12px;padding:clamp(18px,3vw,32px);display:flex;flex-direction:column;gap:20px;min-height:420px}
+.rhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.rtitle{font:700 clamp(22px,3vw,30px)/1.1 var(--f-display);text-transform:uppercase;margin:4px 0 0}
+.count{font:500 13px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.lead{color:var(--muted);max-width:62ch;margin:0}
+.clue{font:600 clamp(20px,2.6vw,26px)/1.3 var(--f-body);margin:0;text-wrap:balance}
+.clue em{font-style:normal;color:var(--sun);font-family:var(--f-mono);font-weight:700}
+
+/* tiles */
+.banks{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:640px){.banks{grid-template-columns:1fr}}
+.bank{display:grid;gap:8px;min-width:0}
+.bank h3{margin:0;font:500 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tiles{display:flex;flex-wrap:wrap;gap:8px}
+.tile{border-radius:5px;padding:9px 14px;font:600 17px var(--f-display);letter-spacing:.02em;transition:transform .12s, box-shadow .15s, border-color .15s}
+.tile:hover{transform:translateY(-2px)}
+.tile.a{ /* a solar cell, with silver fingers */
+  border:1px solid #4d79d6;color:#f2f6ff;
+  background:
+    repeating-linear-gradient(90deg, rgba(220,230,255,.13) 0 1px, transparent 1px 12px),
+    linear-gradient(180deg,#24499c,#173572);
+}
+.tile.b{ /* an MC4 connector */
+  position:relative;border:1px solid #6b5420;color:var(--sun);background:#1b1a17;padding-left:22px;
+}
+.tile.b::before{content:"";position:absolute;left:8px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--sun);box-shadow:0 0 8px var(--sun)}
+.tile.sel{box-shadow:0 0 0 2px var(--sun),0 0 22px rgba(255,178,30,.45)}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+
+/* built word */
+.built{display:flex;flex-wrap:wrap;align-items:center;gap:0;font:800 clamp(30px,6vw,54px)/1 var(--f-display);text-transform:lowercase;min-height:64px}
+.built .pa{color:#cfe0ff}
+.built .pb{color:var(--sun)}
+.built .wire{display:inline-block;width:.7em;height:.12em;margin:0 .08em;background:var(--line);border-radius:4px;transition:background .3s, box-shadow .3s}
+.built.live .wire{background:var(--sun);box-shadow:0 0 14px var(--sun),0 0 30px rgba(255,178,30,.6)}
+.built .slot{display:inline-block;min-width:3.2em;border-bottom:3px dashed var(--line);color:transparent}
+
+.fb{border-radius:8px;padding:12px 14px;border:1px solid var(--line);background:var(--panel-2);display:grid;gap:4px}
+.fb.ok{border-color:rgba(54,211,166,.5)}
+.fb.no{border-color:rgba(255,107,94,.5)}
+.fb b{font:700 13px var(--f-mono);letter-spacing:.1em;text-transform:uppercase}
+.fb.ok b{color:var(--ok)} .fb.no b{color:var(--bad)}
+
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{background:var(--sun);color:#1a1100;border:0;border-radius:6px;padding:12px 20px;font:700 15px var(--f-display);letter-spacing:.08em;text-transform:uppercase}
+.btn:hover{filter:brightness(1.08)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.spacer{flex:1}
+
+/* bins + choices */
+.bins{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:640px){.bins{grid-template-columns:1fr}}
+.bin{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:16px 14px;text-align:left;display:grid;gap:4px}
+.bin:hover{border-color:var(--sun)}
+.bin .f{font:700 20px var(--f-display);text-transform:uppercase}
+.bin .s{font:500 12px var(--f-mono);color:var(--muted)}
+.bin.right{border-color:var(--ok);background:rgba(54,211,166,.1)}
+.bin.wrong{border-color:var(--bad);background:rgba(255,107,94,.1)}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:640px){.choices{grid-template-columns:1fr}}
+.choice{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:16px;font:700 22px var(--f-display);text-align:left}
+.choice:hover{border-color:var(--sun)}
+.choice.right{border-color:var(--ok);background:rgba(54,211,166,.1)}
+.choice.wrong{border-color:var(--bad);background:rgba(255,107,94,.1)}
+.sentence{font:500 clamp(19px,2.4vw,24px)/1.4 var(--f-body);margin:0;text-wrap:balance}
+.sentence .gap{display:inline-block;min-width:7em;border-bottom:2px solid var(--sun);margin:0 4px}
+
+/* rule table */
+.rules{overflow-x:auto}
+.rules table{width:100%;border-collapse:collapse;min-width:560px}
+.rules th,.rules td{text-align:left;padding:12px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.rules th{font:500 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rules td:first-child{font:700 18px var(--f-display);white-space:nowrap}
+.rules td:last-child{color:var(--muted)}
+.rules .ex{color:var(--sun);font-family:var(--f-mono);font-size:14px}
+.note{font-size:14px;color:var(--muted);border-left:2px solid var(--sun);padding-left:12px;margin:0;max-width:70ch}
+
+/* taboo */
+.tcard{display:grid;gap:14px;justify-items:start}
+.tword{font:800 clamp(34px,6vw,56px)/1 var(--f-display);text-transform:lowercase;color:var(--sun)}
+.tword.hide{color:transparent;text-shadow:0 0 22px rgba(255,178,30,.7);user-select:none}
+.ban{display:flex;flex-wrap:wrap;gap:6px}
+.ban span{font:500 13px var(--f-mono);padding:4px 10px;border:1px solid rgba(255,107,94,.5);color:var(--bad);border-radius:999px;text-decoration:line-through}
+.timer{font:700 clamp(40px,7vw,64px)/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.timer.low{color:var(--bad)}
+
+/* forecast chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:9px 16px;font:600 16px var(--f-display);letter-spacing:.02em}
+.chip.pick{border-color:var(--sun);color:var(--sun);background:var(--sun-soft)}
+.chip.yes{border-color:var(--ok);color:var(--ok)}
+.chip.nope{opacity:.45;text-decoration:line-through}
+.chip small{font:500 11px var(--f-mono);color:var(--muted);margin-left:6px}
+
+/* setup */
+.setup{display:grid;grid-template-columns:1.1fr 1fr;gap:24px}
+@media (max-width:760px){.setup{grid-template-columns:1fr}}
+.modes{display:grid;gap:10px}
+.mode{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;text-align:left;display:grid;gap:2px}
+.mode b{font:700 18px var(--f-display);text-transform:uppercase;letter-spacing:.03em}
+.mode span{color:var(--muted);font-size:14px}
+.mode.on{border-color:var(--sun);box-shadow:inset 0 0 0 1px var(--sun)}
+.names{display:grid;gap:8px}
+.names label{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;font:500 12px var(--f-mono);color:var(--muted)}
+.names input{background:#0b1730;border:1px solid var(--line);border-radius:6px;padding:9px 10px;color:var(--fg);font:500 15px var(--f-body);min-width:0}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel-2);font:700 18px var(--f-mono)}
+.stepper output{font:700 18px var(--f-mono);min-width:2ch;text-align:center}
+.plan{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.plan li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.plan .n{font:700 13px var(--f-mono);color:var(--sun);border:1px solid #6b5420;border-radius:4px;text-align:center;padding:3px 0}
+.plan b{font:700 15px var(--f-display);text-transform:uppercase;letter-spacing:.04em}
+.plan span{display:block;font-size:14px;color:var(--muted)}
+
+/* string of modules */
+.string{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.mod{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--panel);display:grid;gap:2px;min-width:0}
+.mod .k{font:500 10px var(--f-mono);letter-spacing:.12em;color:var(--muted)}
+.mod .t{font:600 13px var(--f-display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mod.now{border-color:var(--sun)} .mod.now .k{color:var(--sun)}
+.mod.done{background:rgba(54,211,166,.08);border-color:rgba(54,211,166,.35)}
+.mod.skip{opacity:.35}
+@media (max-width:640px){.mod .t{font-size:11px}}
+
+.podium{display:grid;gap:10px}
+.prow{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.prow .r{font:800 24px var(--f-display);color:var(--muted)}
+.prow:first-child{border-color:var(--sun)} .prow:first-child .r{color:var(--sun)}
+.prow .p{font:700 18px var(--f-display);text-transform:uppercase}
+.prow .s{font:700 18px var(--f-mono);color:var(--sun);font-variant-numeric:tabular-nums}
+
+/* race timer */
+.qbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.qbar i{display:block;height:100%;background:var(--sun);transition:width 1s linear}
+.qbar.low i{background:var(--bad)}
+/* result code */
+.result{display:grid;gap:14px;justify-items:start}
+.bigscore{font:800 clamp(48px,10vw,88px)/1 var(--f-display);color:var(--sun);font-variant-numeric:tabular-nums}
+.codebox{display:flex;flex-wrap:wrap;gap:18px;align-items:center;background:var(--panel-2);border:1px dashed var(--sun);border-radius:10px;padding:14px 18px}
+.codebox .lbl{font:500 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.codebox .val{font:700 30px var(--f-mono);letter-spacing:.12em}
+.breakdown{display:flex;flex-wrap:wrap;gap:8px}
+.breakdown span{font:500 13px var(--f-mono);border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--muted)}
+/* teacher podium */
+.entry{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end}
+@media (max-width:640px){.entry{grid-template-columns:1fr 1fr}}
+.entry label{display:grid;gap:4px;font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);min-width:0}
+.entry input{background:#0b1730;border:1px solid var(--line);border-radius:6px;padding:10px;color:var(--fg);font:500 16px var(--f-body);min-width:0;width:100%}
+.lb{display:grid;gap:6px}
+.lbrow{display:grid;grid-template-columns:32px 1fr auto auto 32px;gap:10px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.lbrow .p{font:700 16px var(--f-display);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbrow .s{font:700 15px var(--f-mono);color:var(--sun);font-variant-numeric:tabular-nums}
+.lbrow .v{font:600 12px var(--f-mono)}
+.lbrow .v.ok{color:var(--ok)} .lbrow .v.no{color:var(--bad)}
+.lbrow .x{background:none;border:0;color:var(--muted);font:700 18px var(--f-mono)}
+.stand{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end;min-height:340px;padding-top:20px}
+.step{display:grid;gap:10px;justify-items:center;text-align:center;opacity:0;transform:translateY(30px);animation:rise .7s cubic-bezier(.2,.8,.2,1) forwards}
+.step .who{font:800 clamp(18px,3vw,28px)/1.1 var(--f-display);text-transform:uppercase;overflow-wrap:anywhere}
+.step .pts{font:700 15px var(--f-mono);color:var(--sun)}
+.step .blk{width:100%;border-radius:8px 8px 0 0;display:grid;place-items:start center;padding-top:12px;font:800 44px var(--f-display);color:#1a1100;
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 1px, transparent 1px 14px),linear-gradient(180deg,var(--sun),#c97f00)}
+.step.s1 .blk{height:200px} .step.s2 .blk{height:140px;filter:saturate(.35) brightness(1.15)} .step.s3 .blk{height:100px;filter:saturate(.2) brightness(.95)}
+.step.s3{animation-delay:.2s} .step.s2{animation-delay:1.4s} .step.s1{animation-delay:2.8s}
+.step.s1 .who{color:var(--sun);text-shadow:0 0 18px rgba(255,178,30,.5)}
+@keyframes rise{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.step{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">ESP · Renewable Energy Engineering · Unit 3 · Power from the Sun</div>
+      <h1>Hyphen<span class="hy">-</span>Grid</h1>
+    </div>
+    <div class="tools">
+      <button class="ghost" id="soundBtn" data-act="sound" aria-pressed="true">Sound: on</button>
+      <button class="ghost" id="restartBtn" data-act="restart">Restart</button>
+    </div>
+  </header>
+  <section class="board" id="board" aria-label="Scoreboard"></section>
+  <main class="stage" id="stage" aria-live="polite"></main>
+  <nav class="string" id="string" aria-label="Rounds"></nav>
+</div>
+
+<script>
+(function(){
+/* ---------- content ---------- */
+const COMP = [
+ {w:'roof-mounted',a:'roof',b:'mounted',t:'ed',frame:'___ panels',clue:'panels that are fixed on top of a house',mean:'they are mounted on the roof',para:1,ban:'top'},
+ {w:'energy-saving',a:'energy',b:'saving',t:'ing',frame:'___ LED lamps',clue:'lamps that use less electricity than old bulbs',mean:'they save energy',para:1,ban:'less'},
+ {w:'grid-connected',a:'grid',b:'connected',t:'ed',frame:'a ___ system',clue:'a system linked to the national electricity network',mean:'it is connected to the grid',para:2,ban:'network'},
+ {w:'battery-backed',a:'battery',b:'backed',t:'ed',frame:'a ___ system',clue:'a system that stores energy so the lights stay on at night',mean:'it is backed (supported) by batteries',para:2,ban:'store'},
+ {w:'solar-powered',a:'solar',b:'powered',t:'ed',frame:'a ___ water pump',clue:'a pump that runs on energy from the sun',mean:'it is powered by the sun',para:2,ban:'sun'},
+ {w:'long-lasting',a:'long',b:'lasting',t:'ing',frame:'___ panels',clue:'panels that keep working for 25 years or more',mean:'they last a long time',para:3,ban:'years'},
+ {w:'fuel-based',a:'fuel',b:'based',t:'ed',frame:'___ electricity',clue:'electricity that comes from burning coal, oil or gas',mean:'it is based on fuel',para:4,ban:'coal'},
+ {w:'renewable-based',a:'renewable',b:'based',t:'ed',frame:'a ___ electricity system',clue:'an electricity mix built on sun, wind and water',mean:'it is based on renewables',para:4,ban:'wind'},
+ {w:'labour-intensive',a:'labour',b:'intensive',t:'adj',frame:'a ___ job',clue:'work that needs a lot of technicians and electricians',mean:'it needs a lot of labour (work)',para:5,ban:'work'},
+ {w:'growth-oriented',a:'growth',b:'oriented',t:'ed',frame:'a ___ industry',clue:'an industry that is focused on growing fast',mean:'it is oriented towards (focused on) growth',para:5,ban:'grow'},
+ {w:'carbon-emitting',a:'carbon',b:'emitting',t:'ing',frame:'___ power stations',clue:'power stations that release CO₂ into the air',mean:'they emit carbon',para:0,ban:'CO₂'},
+ {w:'cost-effective',a:'cost',b:'effective',t:'adj',frame:'a ___ solution',clue:'a solution that gives good results for the money you spend',mean:'it is effective for its cost',para:0,ban:'money'},
+ {w:'energy-efficient',a:'energy',b:'efficient',t:'adj',frame:'an ___ inverter air conditioner',clue:'a machine that wastes very little power while it works',mean:'it uses energy efficiently',para:0,ban:'waste'}
+];
+const EXTRA_A=['water','sun'], EXTRA_B=['cooled','driven'];
+const FAULTS = [
+ {s:'A ___ system keeps the lights on during a power cut.',o:['battery-backing','battery-backed'],k:1,why:'The system is backed by batteries (passive): -ed.'},
+ {s:'Replace your old bulbs with ___ LEDs.',o:['energy-saving','energy-saved'],k:0,why:'The LEDs save energy (active): -ing.'},
+ {s:'In the desert, a ___ pump brings water to the fields.',o:['solar-powering','solar-powered'],k:1,why:'The pump is powered by the sun (passive): -ed.'},
+ {s:'Coal plants are ___: they release tonnes of CO₂ every year.',o:['carbon-emitting','carbon-emitted'],k:0,why:'The plants emit carbon (active): -ing.'},
+ {s:'Our ___ inverter sends surplus power back to the grid.',o:['grid-connecting','grid-connected'],k:1,why:'The inverter is connected to the grid (passive): -ed.'},
+ {s:'PV panels have no moving parts, so they are ___.',o:['long-lasting','long-lasted'],k:0,why:'The panels last a long time (active): -ing.'},
+ {s:'Which one is correct before a noun?',o:['a roof mounted system','a roof-mounted system'],k:1,why:'Before a noun, a compound adjective takes a hyphen.'},
+ {s:'The solar sector is ___: one plant can employ thousands of people.',o:['labour-intensive','labour-intensively'],k:0,why:'We need an adjective after "is". Intensively is an adverb.'}
+];
+const ROUNDS=[
+ {k:'R1',name:'Connect the circuit',short:'Connect',brief:'Read the clue. Pick a cell (first half), then a connector (second half), to build the compound adjective. A first-try connection earns 10 kWh, a second try earns 5.'},
+ {k:'R2',name:'Sort the energy',short:'Sort',brief:'Send each compound to the right bus: noun + -ing, noun + -ed, or noun + adjective. Then look at what each pattern means. 5 kWh per correct sort.'},
+ {k:'R3',name:'Fault finder',short:'Fault finder',brief:'Each sentence has a possible fault. Choose the form that completes it correctly. 10 kWh per fix.'},
+ {k:'R4',name:'Solar taboo',short:'Taboo',brief:'One student from the team describes the compound without saying the forbidden words. The team has 45 seconds to guess. 20 kWh per correct guess. Show the word only to the describer.'},
+ {k:'R5',name:'Forecast the text',short:'Forecast',brief:'Next you will read "Why put solar panels on your roof?". Which 6 of these 13 compound adjectives do you think appear in it? 10 kWh for each correct forecast.'}
+];
+const TEAM_NAMES=['Team Photon','Team Inverter','Team Heliostat','Team Busbar','Team Molten Salt'];
+
+/* ---------- state ---------- */
+const fresh=()=>({screen:'setup',mode:'teams',nTeams:3,names:TEAM_NAMES.slice(),teams:[],cur:0,round:0,i:0,att:0,selA:null,queue:[],ans:null,built:false,
+  bets:{},betTeam:0,revealed:false,peek:false,tLeft:45,tRun:false,tDone:false,sound:true,banksA:[],banksB:[],
+  qLeft:0,qTotal:0,gain:0,attempt:1,byRound:[0,0,0,0,0],entries:loadEntries(),podium:false,entryErr:''});
+const RACE_T={R1:30,R2:15,R3:20};
+const BONUS={R1:5,R2:3,R3:5};
+const isRace=()=>S.mode==='race';
+/* check code: ties name + score + attempt together so a teacher can spot edited scores */
+const ALPH='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function makeCode(name,score,attempt){
+  let s=String(name).trim().toLowerCase().replace(/\s+/g,' ')+'|'+score+'|'+attempt+'|noor-unit3',h=2166136261;
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  let out='';for(let i=0;i<4;i++){out+=ALPH[h%ALPH.length];h=Math.floor(h/ALPH.length)+(i*7919);}
+  return out+'-'+attempt;
+}
+function loadEntries(){try{return JSON.parse(localStorage.getItem('hg_entries')||'[]')}catch(e){return []}}
+function saveEntries(){try{localStorage.setItem('hg_entries',JSON.stringify(S.entries))}catch(e){}}
+function nextAttempt(){let n=1;try{n=(+localStorage.getItem('hg_attempts')||0)+1;localStorage.setItem('hg_attempts',n)}catch(e){}return n}
+let S=fresh();
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a};
+
+/* ---------- sound ---------- */
+let AC=null;
+function tone(f,d,type){ if(!S.sound)return; try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,AC.currentTime);g.gain.exponentialRampToValueAtTime(.18,AC.currentTime+.01);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d+.02);}catch(e){} }
+const good=()=>{tone(660,.12);setTimeout(()=>tone(990,.18),90)};
+const bad=()=>tone(160,.25,'square');
+
+/* ---------- scoring ---------- */
+function capacity(){
+  const n=S.teams.length||1;
+  const bonus=isRace()?COMP.length*BONUS.R1+COMP.length*BONUS.R2+FAULTS.length*BONUS.R3:0;
+  const shared=(COMP.length*10+COMP.length*5+FAULTS.length*10+bonus)/n;
+  return Math.round(shared+(S.mode==='teams'?40:0)+60);
+}
+function award(p){ S.gain=p; if(S.teams[S.cur]){S.teams[S.cur].score+=p;} S.byRound[S.round]+=p; }
+function speed(){ const k=ROUNDS[S.round].k; return isRace()&&BONUS[k]?Math.ceil(BONUS[k]*Math.max(0,S.qLeft)/S.qTotal):0; }
+let QT=null;
+function qStop(){ if(QT){clearInterval(QT);QT=null} }
+function qStart(){
+  qStop(); const k=ROUNDS[S.round].k; if(!isRace()||!RACE_T[k])return;
+  S.qTotal=RACE_T[k]; S.qLeft=RACE_T[k];
+  QT=setInterval(()=>{
+    S.qLeft--; const bar=$('#qbar'),wrap=$('.qbar'),num=$('#qnum');
+    if(bar)bar.style.width=Math.max(0,S.qLeft/S.qTotal*100)+'%';
+    if(wrap)wrap.classList.toggle('low',S.qLeft<=5);
+    if(num)num.textContent=Math.max(0,S.qLeft)+'s';
+    if(S.qLeft<=0){ qStop(); S.gain=0;
+      if(k==='R1'){S.ans='reveal';S.selA=null} else if(k==='R2'){S.ans='timeout'} else {S.ans=-1}
+      bad(); render(); }
+  },1000);
+}
+function nextTurn(){ S.cur=(S.cur+1)%S.teams.length; }
+
+/* ---------- render ---------- */
+function renderBoard(){
+  const b=$('#board');
+  if(!S.teams.length){b.innerHTML='';b.hidden=true;return}
+  b.hidden=false;
+  const cap=capacity();
+  const showTurn=S.screen==='play' && S.mode==='teams' && !(ROUNDS[S.round].k==='R5'&&S.revealed);
+  b.innerHTML=S.teams.map((t,i)=>`<div class="team ${showTurn&&i===S.cur?'on':''}">
+    <div class="nm"><span>${esc(t.name)}</span><span class="kwh">${t.score} kWh</span></div>
+    <div class="batt"><i style="width:${Math.min(100,t.score/cap*100).toFixed(1)}%"></i></div>
+    ${showTurn&&i===S.cur?'<div class="turn">● Your turn</div>':''}
+  </div>`).join('');
+}
+function renderString(){
+  const s=$('#string');
+  if(S.screen==='setup'||S.screen==='podium'){s.hidden=true;return} s.hidden=false;
+  s.innerHTML=ROUNDS.map((r,i)=>{
+    let c='mod'; if(r.k==='R4'&&S.mode!=='teams')c+=' skip'; else if(S.screen==='final'||i<S.round)c+=' done'; else if(i===S.round)c+=' now';
+    return `<div class="${c}"><span class="k">${r.k}${r.k==='R4'&&S.mode!=='teams'?' · teams only':''}</span><span class="t">${r.short}</span></div>`;
+  }).join('');
+}
+function render(){
+  renderBoard(); renderString();
+  const st=$('#stage'); let h='';
+  if(S.screen==='setup') h=vSetup();
+  else if(S.screen==='intro') h=vIntro();
+  else if(S.screen==='rules') h=vRules();
+  else if(S.screen==='final') h=vFinal();
+  else if(S.screen==='podium') h=vPodium();
+  else h=[vConnect,vSort,vFault,vTaboo,vForecast][S.round]();
+  st.innerHTML=h;
+  $('#soundBtn').textContent='Sound: '+(S.sound?'on':'off');
+  $('#soundBtn').setAttribute('aria-pressed',S.sound);
+  $('#restartBtn').hidden=S.screen==='setup';
+}
+
+function vSetup(){
+  const names=S.mode==='teams'?`<div class="names">
+      <div class="row"><span class="eyebrow">Number of teams</span><div class="stepper"><button data-act="nt" data-d="-1" aria-label="Fewer teams">−</button><output>${S.nTeams}</output><button data-act="nt" data-d="1" aria-label="More teams">+</button></div></div>
+      ${Array.from({length:S.nTeams},(_,i)=>`<label for="tn${i}">T${i+1}<input id="tn${i}" data-name="${i}" value="${esc(S.names[i])}" maxlength="22"></label>`).join('')}
+    </div>`:S.mode==='race'?`<div class="names"><label for="tn0">Name<input id="tn0" data-name="0" value="${esc(S.names[0]==='Team Photon'?'':S.names[0])}" placeholder="First name + initial" maxlength="22" autocomplete="off"></label>
+      <p class="note">Use the same name you will give your teacher. It is part of your score code.</p></div>`
+    :`<p class="note">Students read out their name, score and code at the end. Type them in here, check the codes, then reveal the podium on the projector.</p>`;
+  return `<div class="setup">
+    <div style="display:grid;gap:16px;align-content:start">
+      <div><div class="eyebrow">Vocabulary warm-up · before the reading</div><h2 class="rtitle">Wire up 13 compound adjectives</h2></div>
+      <p class="lead">Hyphens are the cables of English: they connect two words into one adjective, like <b>grid-connected</b> or <b>labour-intensive</b>. Charge your team battery by building, sorting and using them, then forecast which ones appear in the reading text.</p>
+      <ol class="plan">${ROUNDS.map((r,i)=>`<li><span class="n">${r.k}</span><div><b>${r.name}</b><span>${r.brief.split('. ')[0]}.</span></div></li>`).join('')}</ol>
+    </div>
+    <div style="display:grid;gap:16px;align-content:start">
+      <div class="modes">
+        <button class="mode ${S.mode==='teams'?'on':''}" data-act="mode" data-m="teams"><b>Class game</b><span>2–5 teams take turns on the projector</span></button>
+        <button class="mode ${S.mode==='race'?'on':''}" data-act="mode" data-m="race"><b>Class race · phones</b><span>Every student plays all rounds on their own phone, against the clock</span></button>
+        <button class="mode ${S.mode==='podium'?'on':''}" data-act="mode" data-m="podium"><b>Podium · teacher</b><span>Collect the race scores and reveal the top 3 on the projector</span></button>
+      </div>
+      ${names}
+      <div class="row"><button class="btn" data-act="start">${S.mode==='podium'?'Open the podium →':'Switch on the plant →'}</button></div>
+    </div>
+  </div>`;
+}
+function vIntro(){
+  const r=ROUNDS[S.round];
+  return `<div class="rhead"><div><div class="eyebrow">Round ${S.round+1} of 5</div><h2 class="rtitle">${r.name}</h2></div></div>
+   <p class="lead" style="font-size:18px;color:var(--fg)">${r.brief}</p>
+   ${S.mode==='teams'&&r.k!=='R5'?`<p class="note">Teams take turns, one item each. The highlighted battery shows whose turn it is.</p>`:''}
+   ${isRace()&&RACE_T[r.k]?`<p class="note">Race rules: ${RACE_T[r.k]} seconds per item. Answer fast for a speed bonus of up to +${BONUS[r.k]} kWh. If the clock runs out, you get 0.</p>`:''}
+   <div class="row" style="margin-top:auto"><button class="btn" data-act="begin">Start round →</button></div>`;
+}
+function head(label){
+  const k=ROUNDS[S.round].k, timed=isRace()&&RACE_T[k]&&S.ans===null&&!S.built;
+  return `<div class="rhead"><div><div class="eyebrow">${k} · ${ROUNDS[S.round].name}</div>${label?`<h2 class="rtitle">${label}</h2>`:''}</div><span class="count">${timed?`<span id="qnum">${S.qLeft}s</span> · `:''}${String(Math.min(S.i+1,S.queue.length)).padStart(2,'0')} / ${String(S.queue.length).padStart(2,'0')}</span></div>
+  ${timed?`<div class="qbar ${S.qLeft<=5?'low':''}"><i id="qbar" style="width:${S.qLeft/S.qTotal*100}%"></i></div>`:''}`;
+}
+function nextBtn(){ return `<div class="row"><span class="spacer"></span><button class="btn" data-act="next" id="nextBtn">${S.i+1>=S.queue.length?'Finish round →':'Next →'}</button></div>`; }
+
+function vConnect(){
+  const it=S.queue[S.i];
+  const frame=esc(it.frame).replace('___','<em>_____</em>');
+  const built=S.built||S.ans==='reveal'
+    ? `<div class="built live"><span class="pa">${it.a}</span><span class="wire"></span><span class="pb">${it.b}</span></div>`
+    : `<div class="built"><span class="${S.selA?'pa':'slot'}">${S.selA||'xxxx'}</span><span class="wire"></span><span class="slot">xxxx</span></div>`;
+  let fb='';
+  if(S.built) fb=`<div class="fb ok"><b>Connected · +${S.gain} kWh</b><span>${frame.replace('<em>_____</em>','<strong>'+it.w+'</strong>')}: ${it.mean}.</span></div>`;
+  else if(S.ans==='reveal') fb=`<div class="fb no"><b>${S.att>=2?'Circuit open':'Time is up'} · 0 kWh</b><span>The answer is <strong>${it.w}</strong>: ${it.mean}.</span></div>`;
+  else if(S.att===1) fb=`<div class="fb no"><b>No current</b><span>That is not the right connection. You have one more try.</span></div>`;
+  const locked=S.built||S.ans==='reveal';
+  return head('')+`
+   <p class="clue">${frame}<br><span style="color:var(--muted);font-weight:500">${esc(it.clue)}</span></p>
+   ${built}${fb}
+   ${locked?nextBtn():`<div class="banks">
+     <div class="bank"><h3>Cells · first half</h3><div class="tiles">${S.banksA.map(x=>`<button class="tile a ${S.selA===x?'sel':''}" data-act="pa" data-v="${x}">${x}</button>`).join('')}</div></div>
+     <div class="bank"><h3>Connectors · second half</h3><div class="tiles" id="bankB">${S.banksB.map(x=>`<button class="tile b" data-act="pb" data-v="${x}" ${S.selA?'':'aria-disabled="true"'}>${x}</button>`).join('')}</div></div>
+   </div>`}`;
+}
+const BINS=[{t:'ing',f:'noun + -ing',s:'energy + saving'},{t:'ed',f:'noun + -ed',s:'grid + connected'},{t:'adj',f:'noun + adjective',s:'labour + intensive'}];
+const MEAN={ing:'Active: it does something.',ed:'Passive: something is done to it.',adj:'It has a lot of something, or is focused on it.'};
+function vSort(){
+  const it=S.queue[S.i];
+  const done=S.ans!==null;
+  let fb='';
+  if(done){const ok=S.ans===it.t;fb=`<div class="fb ${ok?'ok':'no'}"><b>${ok?'Correct · +'+S.gain+' kWh':S.ans==='timeout'?'Time is up · 0 kWh':'Wrong bus · 0 kWh'}</b><span><strong>${it.w}</strong> → ${it.mean}. ${MEAN[it.t]}${it.w==='long-lasting'?' (Here "long" is an adjective, but the -ing pattern and its active meaning are the same.)':''}</span></div>`;}
+  return head('')+`
+   <div class="built live"><span class="pa">${it.a}</span><span class="wire"></span><span class="pb">${it.b}</span></div>
+   <div class="bins">${BINS.map(b=>{let c='bin';if(done){if(b.t===it.t)c+=' right';else if(b.t===S.ans)c+=' wrong';}
+     return `<button class="${c}" data-act="bin" data-v="${b.t}" ${done?'disabled':''}><span class="f">${b.f}</span><span class="s">like ${b.s}</span></button>`}).join('')}</div>
+   ${fb}${done?nextBtn():''}`;
+}
+function vRules(){
+  const ex=t=>COMP.filter(c=>c.t===t).map(c=>c.w).join(' · ');
+  return `<div class="rhead"><div><div class="eyebrow">Rule unlocked</div><h2 class="rtitle">Three ways to wire a compound</h2></div></div>
+  <div class="rules"><table><thead><tr><th>Form</th><th>Meaning</th><th>Your compounds</th></tr></thead><tbody>
+   <tr><td>noun + -ing</td><td><b>Active:</b> it does something.<br><span class="ex">energy-saving lamps = they save energy</span></td><td>${ex('ing')}</td></tr>
+   <tr><td>noun + -ed</td><td><b>Passive:</b> something is done to it.<br><span class="ex">a grid-connected system = it is connected to the grid</span></td><td>${ex('ed')}</td></tr>
+   <tr><td>noun + adjective</td><td>It <b>has a lot of</b> something, or is <b>focused on</b> it.<br><span class="ex">labour-intensive = it needs a lot of work</span></td><td>${ex('adj')}</td></tr>
+  </tbody></table></div>
+  <p class="note">Before a noun, the two parts are joined with a hyphen: <b>a solar-powered pump</b>.</p>
+  <div class="row" style="margin-top:auto"><span class="spacer"></span><button class="btn" data-act="afterRules">Next round →</button></div>`;
+}
+function vFault(){
+  const it=S.queue[S.i]; const done=S.ans!==null;
+  const sent=esc(it.s).replace('___','<span class="gap">&nbsp;</span>');
+  return head('')+`<p class="sentence">${sent}</p>
+   <div class="choices">${it.o.map((o,j)=>{let c='choice';if(done){if(j===it.k)c+=' right';else if(j===S.ans)c+=' wrong';}return `<button class="${c}" data-act="fault" data-v="${j}" ${done?'disabled':''}>${esc(o)}</button>`}).join('')}</div>
+   ${done?`<div class="fb ${S.ans===it.k?'ok':'no'}"><b>${S.ans===it.k?'Fault fixed · +'+S.gain+' kWh':S.ans===-1?'Time is up · 0 kWh':'Still faulty · 0 kWh'}</b><span>${esc(it.why)}</span></div>`+nextBtn():''}`;
+}
+function vTaboo(){
+  const it=S.queue[S.i]; const done=S.ans!==null;
+  return head('')+`<div class="tcard">
+    <p class="lead">Describer from <b style="color:var(--fg)">${esc(S.teams[S.cur].name)}</b>: look at the word. The rest of the team must not see it.</p>
+    <div class="tword ${S.peek||done?'':'hide'}" aria-hidden="${S.peek||done?'false':'true'}">${S.peek||done?it.w:'●●●●●-●●●●●'}</div>
+    <div><div class="eyebrow" style="margin-bottom:6px">Forbidden words</div><div class="ban"><span>${it.a}</span><span>${it.b}</span><span>${esc(it.ban)}</span></div></div>
+    <div class="row"><div class="timer ${S.tLeft<=10?'low':''}" id="timer">${String(S.tLeft).padStart(2,'0')}s</div>
+      ${!done?`<button class="btn alt" data-act="peek">${S.peek?'Hide word':'Show word to describer'}</button>
+      ${!S.tRun&&!S.tDone?`<button class="btn alt" data-act="go">Start 45 s</button>`:''}`:''}
+    </div>
+    ${!done?`<div class="row"><button class="btn" data-act="tab" data-v="1">Guessed · +20</button><button class="btn alt" data-act="tab" data-v="0">Pass</button></div>`:
+      `<div class="fb ${S.ans?'ok':'no'}"><b>${S.ans?'Guessed · +20 kWh':'Passed · 0 kWh'}</b><span><strong>${it.w}</strong>: ${it.mean}.</span></div>`+nextBtn()}
+  </div>`;
+}
+function vForecast(){
+  const T=S.teams[S.betTeam]; const mine=S.bets[S.betTeam]||[];
+  if(S.revealed){
+    const inT=COMP.filter(c=>c.para);
+    return `<div class="rhead"><div><div class="eyebrow">R5 · Forecast the text</div><h2 class="rtitle">${inT.length} of 13 are in the text</h2></div></div>
+    <div class="chips">${COMP.map(c=>`<span class="chip ${c.para?'yes':'nope'}">${c.w}${c.para?`<small>§${c.para}</small>`:''}</span>`).join('')}</div>
+    <div class="podium">${S.teams.map((t,i)=>{const b=S.bets[i]||[];const hit=b.filter(w=>COMP.find(c=>c.w===w).para).length;return `<div class="prow"><span class="r">${hit}/6</span><span class="p">${esc(t.name)}<br><span style="font:500 12px var(--f-mono);color:var(--muted);text-transform:none">${b.join(' · ')}</span></span><span class="s">+${hit*10}</span></div>`}).join('')}</div>
+    <p class="note">The other three (cost-effective, energy-efficient, carbon-emitting) are in the vocabulary box after the text.</p>
+    <div class="row"><span class="spacer"></span><button class="btn" data-act="toFinal">See final charge →</button></div>`;
+  }
+  return `<div class="rhead"><div><div class="eyebrow">R5 · Forecast the text</div><h2 class="rtitle">${esc(T.name)}: pick 6</h2></div><span class="count">${mine.length} / 6 picked</span></div>
+   <p class="lead">Text: <b style="color:var(--fg)">"Why put solar panels on your roof?"</b> It covers bills, energy independence, maintenance, CO₂ and jobs.</p>
+   <div class="chips">${COMP.map(c=>`<button class="chip ${mine.includes(c.w)?'pick':''}" data-act="bet" data-v="${c.w}" aria-pressed="${mine.includes(c.w)}">${c.w}</button>`).join('')}</div>
+   <div class="row"><span class="spacer"></span><button class="btn" data-act="lock" ${mine.length===6?'':'disabled'}>${S.betTeam<S.teams.length-1?'Lock forecast · next team →':'Lock forecast · reveal →'}</button></div>`;
+}
+function vFinal(){
+  if(isRace()){
+    const t=S.teams[0], code=makeCode(t.name,t.score,S.attempt);
+    const parts=ROUNDS.map((r,i)=>r.k==='R4'?'':`<span>${r.k} ${r.short}: ${S.byRound[i]} kWh</span>`).join('');
+    return `<div class="result">
+      <div class="eyebrow">Plant report · show this screen to your teacher</div>
+      <h2 class="rtitle">${esc(t.name)}</h2>
+      <div class="bigscore">${t.score} kWh</div>
+      <div class="codebox"><div><div class="lbl">Score code</div><div class="val">${code}</div></div>
+        <div><div class="lbl">Battery</div><div class="val">${Math.min(100,Math.round(t.score/capacity()*100))}%</div></div></div>
+      <div class="breakdown">${parts}</div>
+      <p class="note"><b>Now read.</b> Open your booklet at "Why put solar panels on your roof?" and underline the 10 compound adjectives as you read. Then do Task 4.</p>
+    </div>`;
+  }
+  const r=S.teams.map(t=>t).sort((a,b)=>b.score-a.score);
+  const cap=capacity();
+  return `<div class="rhead"><div><div class="eyebrow">Plant report</div><h2 class="rtitle">${S.mode==='teams'?esc(r[0].name)+' is fully charged':'Your battery: '+Math.min(100,Math.round(r[0].score/cap*100))+'%'}</h2></div></div>
+   <div class="podium">${r.map((t,i)=>`<div class="prow"><span class="r">${i+1}</span><span class="p">${esc(t.name)}</span><span class="s">${t.score} kWh</span></div>`).join('')}</div>
+   <p class="note"><b>Now read.</b> Open your booklet at "Why put solar panels on your roof?" and underline the 10 compound adjectives as you read. Then do Task 4.</p>
+   <div class="row"><span class="spacer"></span><button class="btn alt" data-act="restart">Play again</button></div>`;
+}
+
+function ranked(){
+  return S.entries.map((e,idx)=>Object.assign({idx,ok:makeCode(e.name,e.score,e.att)===e.code},e))
+    .sort((a,b)=>(b.ok-a.ok)||(b.score-a.score));
+}
+function vPodium(){
+  const R=ranked();
+  if(S.podium){
+    const top=R.filter(e=>e.ok).slice(0,3);
+    const step=(e,n)=>e?`<div class="step s${n}"><div class="who">${esc(e.name)}</div><div class="pts">${e.score} kWh</div><div class="blk">${n}</div></div>`:`<div></div>`;
+    return `<div class="rhead"><div><div class="eyebrow">Hyphen-Grid · class race</div><h2 class="rtitle">Top engineers</h2></div></div>
+      ${top.length?`<div class="stand">${step(top[1],2)}${step(top[0],1)}${step(top[2],3)}</div>`:`<p class="lead">No checked scores yet. Go back and add the students' scores first.</p>`}
+      <div class="row"><button class="btn alt" data-act="podiumOff">← Back to scores</button></div>`;
+  }
+  return `<div class="rhead"><div><div class="eyebrow">Podium · teacher</div><h2 class="rtitle">Collect the race scores</h2></div><span class="count">${R.length} entered</span></div>
+   <p class="lead">Ask the top students to read out their name, kWh and score code. A ✔ means the code matches. A ✘ means the name, score or code was typed differently from the phone screen.</p>
+   <form class="entry" id="entryForm" autocomplete="off">
+     <label for="enName">Name<input id="enName" maxlength="22" required></label>
+     <label for="enScore">kWh<input id="enScore" inputmode="numeric" pattern="[0-9]*" required></label>
+     <label for="enCode">Code<input id="enCode" maxlength="8" placeholder="ABCD-1" required style="text-transform:uppercase"></label>
+     <button class="btn" type="submit">Add</button>
+   </form>
+   ${S.entryErr?`<p class="note" style="border-color:var(--bad)">${esc(S.entryErr)}</p>`:''}
+   <div class="lb">${R.map((e,i)=>`<div class="lbrow"><span class="count">${i+1}</span><span class="p">${esc(e.name)}</span><span class="s">${e.score} kWh</span><span class="v ${e.ok?'ok':'no'}">${e.ok?'✔ '+esc(e.code):'✘ '+esc(e.code)}</span><button class="x" data-act="delEntry" data-v="${e.idx}" aria-label="Remove ${esc(e.name)}">×</button></div>`).join('')}</div>
+   <div class="row" style="margin-top:auto">${S.entries.length?`<button class="btn alt" data-act="clearEntries">Clear all</button>`:''}<span class="spacer"></span><button class="btn" data-act="podiumOn" ${R.some(e=>e.ok)?'':'disabled'}>Reveal the podium →</button></div>`;
+}
+
+/* ---------- flow ---------- */
+function startRound(r){
+  if(r===3&&S.mode!=='teams')r=4;
+  if(r>4){S.screen='final';stopTimer();qStop();good();render();return}
+  S.round=r;S.screen='intro';render();
+}
+function begin(){
+  S.i=0;S.att=0;S.ans=null;S.built=false;S.selA=null;S.peek=false;S.screen='play';
+  const r=ROUNDS[S.round].k;
+  if(r==='R1'){S.queue=shuffle(COMP);S.banksA=shuffle([...new Set(COMP.map(c=>c.a))].concat(EXTRA_A));S.banksB=shuffle([...new Set(COMP.map(c=>c.b))].concat(EXTRA_B));}
+  if(r==='R2')S.queue=shuffle(COMP);
+  if(r==='R3')S.queue=shuffle(FAULTS);
+  if(r==='R4'){S.queue=shuffle(COMP).slice(0,Math.min(COMP.length,S.teams.length*2));resetTimer();}
+  if(r==='R5'){S.queue=[0];S.bets={};S.betTeam=0;S.revealed=false;}
+  S.cur=0;qStart();render();
+}
+function next(){
+  nextTurn();
+  S.i++;S.att=0;S.ans=null;S.built=false;S.selA=null;S.peek=false;
+  if(ROUNDS[S.round].k==='R4')resetTimer();
+  if(S.i>=S.queue.length){
+    stopTimer();qStop();
+    if(ROUNDS[S.round].k==='R2'){S.screen='rules';render();return}
+    startRound(S.round+1);return;
+  }
+  qStart();render();
+  const n=$('#stage button'); if(n) n.focus({preventScroll:true});
+}
+let TI=null;
+function resetTimer(){stopTimer();S.tLeft=45;S.tRun=false;S.tDone=false}
+function stopTimer(){if(TI){clearInterval(TI);TI=null}S.tRun=false}
+function goTimer(){
+  stopTimer();S.tRun=true;render();
+  TI=setInterval(()=>{S.tLeft--;const el=$('#timer');
+    if(el){el.textContent=String(Math.max(0,S.tLeft)).padStart(2,'0')+'s';el.classList.toggle('low',S.tLeft<=10)}
+    if(S.tLeft<=10&&S.tLeft>0)tone(880,.05);
+    if(S.tLeft<=0){stopTimer();S.tDone=true;bad();render();}
+  },1000);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('input',e=>{const i=e.target.dataset.name;if(i!==undefined)S.names[+i]=e.target.value;});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const a=b.dataset.act,v=b.dataset.v;
+  if(a==='sound'){S.sound=!S.sound;render();return}
+  if(a==='restart'){stopTimer();qStop();const snd=S.sound,m=S.mode,nm=S.names;S=fresh();S.sound=snd;S.mode=m;S.names=nm;render();return}
+  if(a==='podiumOn'){S.podium=true;render();return}
+  if(a==='podiumOff'){S.podium=false;render();return}
+  if(a==='delEntry'){S.entries.splice(+v,1);saveEntries();render();return}
+  if(a==='clearEntries'){if(b.dataset.sure){S.entries=[];saveEntries();render();}else{b.dataset.sure='1';b.textContent='Tap again to clear';}return}
+  if(a==='mode'){S.mode=b.dataset.m;render();return}
+  if(a==='nt'){S.nTeams=Math.max(2,Math.min(5,S.nTeams+ +b.dataset.d));render();return}
+  if(a==='start'){
+    if(S.mode==='podium'){S.screen='podium';S.podium=false;S.teams=[];render();return}
+    if(S.mode==='race'&&!(S.names[0]||'').trim()||S.mode==='race'&&S.names[0]==='Team Photon'){const i=$('#tn0');if(i){i.focus();i.placeholder='Type your name first';}return}
+    if(S.mode==='race'){S.attempt=nextAttempt();S.byRound=[0,0,0,0,0];}
+    const n=S.mode==='teams'?S.nTeams:1;
+    S.teams=Array.from({length:n},(_,i)=>({name:(S.names[i]||'').trim()||(S.mode==='solo'?'Engineer':TEAM_NAMES[i]),score:0}));
+    if(S.mode==='solo'&&S.names[0]==='Team Photon')S.teams[0].name='Engineer';
+    tone(520,.1);startRound(0);return}
+  if(a==='begin'){begin();return}
+  if(a==='next'){next();return}
+  if(a==='afterRules'){startRound(S.round+1);return}
+  if(a==='pa'){S.selA=v;tone(440,.06);render();return}
+  if(a==='pb'){
+    if(!S.selA){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+    const it=S.queue[S.i];
+    if(S.selA===it.a&&v===it.b){S.built=true;award(S.att?5:10+speed());qStop();good();}
+    else{S.att++;bad();S.selA=null;if(S.att>=2){S.ans='reveal';S.gain=0;qStop();}}
+    render();return}
+  if(a==='bin'){const it=S.queue[S.i];S.ans=v;if(v===it.t){award(5+speed());good()}else{S.gain=0;bad()}qStop();render();return}
+  if(a==='fault'){const it=S.queue[S.i];S.ans=+v;if(+v===it.k){award(10+speed());good()}else{S.gain=0;bad()}qStop();render();return}
+  if(a==='peek'){S.peek=!S.peek;render();return}
+  if(a==='go'){goTimer();return}
+  if(a==='tab'){stopTimer();S.ans=v==='1';if(S.ans){award(20);good()}render();return}
+  if(a==='bet'){const m=S.bets[S.betTeam]=S.bets[S.betTeam]||[];const k=m.indexOf(v);if(k>=0)m.splice(k,1);else if(m.length<6)m.push(v);render();return}
+  if(a==='lock'){
+    if(S.betTeam<S.teams.length-1){S.betTeam++;render();return}
+    S.revealed=true;
+    S.teams.forEach((t,i)=>{(S.bets[i]||[]).forEach(w=>{if(COMP.find(c=>c.w===w).para){t.score+=10;S.byRound[S.round]+=10;}})});
+    good();render();return}
+  if(a==='toFinal'){S.screen='final';render();return}
+});
+document.addEventListener('submit',e=>{
+  if(e.target.id!=='entryForm')return; e.preventDefault();
+  const name=$('#enName').value.trim(), score=parseInt($('#enScore').value,10);
+  let code=$('#enCode').value.trim().toUpperCase().replace(/\s+/g,'');
+  if(!name||isNaN(score)||!code){S.entryErr='Fill in name, kWh and code.';render();return}
+  if(!/-\d+$/.test(code))code+='-1';
+  const att=+code.split('-').pop();
+  S.entries.push({name,score,code,att});S.entryErr='';saveEntries();render();
+  const f=$('#enName');if(f)f.focus();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.target.matches('input,button')){const n=$('#nextBtn');if(n)n.click();} });
+
+/* ---------- boot ---------- */
+function start(data){
+  try{ if(data&&data.S&&data.S.screen){S=Object.assign(fresh(),data.S);S.tRun=false;} }catch(e){}
+  render();
+}
+try{ window.claude?.hot?.snapshot?.(()=>({S:JSON.parse(JSON.stringify(S))})); }catch(e){}
+if(window.claude?.hot?.ready) window.claude.hot.ready(start); else start(window.claude?.hot?.data??{});
+})();
+</script>
+
+</body></html>
